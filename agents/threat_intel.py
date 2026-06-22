@@ -45,9 +45,9 @@ from urllib.parse import urlparse
 
 import requests
 from langchain_groq import ChatGroq
-from langchain.agents import AgentExecutor, create_tool_calling_agent
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.tools import tool
+from langchain_core.messages import SystemMessage
+from langgraph.prebuilt import create_react_agent
 
 
 # ---------------------------------------------------------------------------
@@ -460,29 +460,24 @@ After running ALL four tools, summarise your findings clearly. You MUST run all 
 before producing a final answer. Do not skip any tool."""
 
     def __init__(self) -> None:
-        # Initialise the Groq LLM
+        self._llm: ChatGroq | None = None
+        self._agent = None
+
+    def _get_agent(self):
+        """Lazy-init the LangGraph ReAct agent."""
+        if self._agent is not None:
+            return self._agent
         self._llm = ChatGroq(
             model="llama-3.3-70b-versatile",
             temperature=0,
             groq_api_key=os.getenv("GROQ_API_KEY"),
         )
-
-        # Build the prompt template that wraps system instructions + conversation
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", self._SYSTEM_PROMPT),
-            ("human", "{input}"),
-            ("placeholder", "{agent_scratchpad}"),
-        ])
-
-        # Create a tool-calling agent and wrap it in an executor
-        agent = create_tool_calling_agent(self._llm, self._TOOLS, prompt)
-        self._executor = AgentExecutor(
-            agent=agent,
-            tools=self._TOOLS,
-            verbose=False,
-            handle_parsing_errors=True,
-            max_iterations=10,
+        self._agent = create_react_agent(
+            self._llm,
+            self._TOOLS,
+            prompt=SystemMessage(content=self._SYSTEM_PROMPT),
         )
+        return self._agent
 
     # ------------------------------------------------------------------
     # Internal helpers for parsing raw tool outputs
@@ -716,8 +711,9 @@ before producing a final answer. Do not skip any tool."""
                 f"Analyse the threat intelligence for vendor '{vendor_name}' "
                 f"with website '{website}'. Run all four checks."
             )
-            agent_result = self._executor.invoke({"input": agent_input})
-            llm_summary = agent_result.get("output", "")
+            agent = self._get_agent()
+            agent_result = agent.invoke({"messages": [("human", agent_input)]})
+            llm_summary = agent_result["messages"][-1].content
             if llm_summary and len(llm_summary) > 20:
                 threat_findings.append(f"[LLM Analysis] {llm_summary.strip()}")
         except Exception as exc:

@@ -40,9 +40,9 @@ from urllib.robotparser import RobotFileParser
 import requests
 from bs4 import BeautifulSoup
 from langchain_groq import ChatGroq
-from langchain.agents import AgentExecutor, create_react_agent
-from langchain.tools import tool
-from langchain_core.prompts import PromptTemplate
+from langchain_core.tools import tool
+from langchain_core.messages import SystemMessage
+from langgraph.prebuilt import create_react_agent
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -415,13 +415,10 @@ def score_security_posture(text: str) -> str:
 # Agent prompt
 # ---------------------------------------------------------------------------
 
-REACT_PROMPT_TEMPLATE = """
-You are VendorGuard Agent A — a security analyst that evaluates SaaS vendors
+SYSTEM_PROMPT = """You are VendorGuard Agent A — a security analyst that evaluates SaaS vendors
 based on their public website.
 
-Your job: analyze the vendor "{vendor_name}" at {website}.
-
-Follow this exact sequence:
+Follow this exact sequence when given a vendor name and URL:
 1. Call scrape_main_website to get the homepage content.
 2. Call scrape_security_pages to get security/compliance sub-pages.
 3. Combine all text and call detect_compliance_certificates.
@@ -429,27 +426,11 @@ Follow this exact sequence:
 5. Call score_security_posture on the combined text.
 6. Return a FINAL ANSWER in this exact format (no extra commentary):
 
-FINDINGS: <semicolon-separated list of key security observations, e.g. "Mentions TLS encryption; Has SOC2 badge; No MFA mentioned">
-COMPLIANCE_CERTS: <comma-separated cert names from detect_compliance_certificates, or NONE>
-HOSTING_REGIONS: <comma-separated values from detect_hosting_regions, or UNKNOWN>
-SECURITY_SCORE: <integer 0-50 from score_security_posture>
-
-You have access to the following tools:
-{tools}
-
-Tool names available: {tool_names}
-
-Use this ReAct format:
-Thought: <your reasoning>
-Action: <tool name>
-Action Input: <input>
-Observation: <tool output>
-... (repeat as needed)
-Thought: I now have enough information to give the final answer.
-Final Answer: FINDINGS: ...\nCOMPLIANCE_CERTS: ...\nHOSTING_REGIONS: ...\nSECURITY_SCORE: ...
-
-{agent_scratchpad}
-""".strip()
+FINDINGS: <semicolon-separated list of key security observations>
+COMPLIANCE_CERTS: <comma-separated cert names, or NONE>
+HOSTING_REGIONS: <comma-separated values, or UNKNOWN>
+SECURITY_SCORE: <integer 0-50>
+"""
 
 
 # ---------------------------------------------------------------------------
@@ -472,26 +453,20 @@ class SaaSAuditorAgent:
     GROQ_MODEL = "llama-3.3-70b-versatile"
 
     def __init__(self) -> None:
-        # Lazy LLM init: reads GROQ_API_KEY from the environment at call time
         self._llm: ChatGroq | None = None
-        self._agent_executor: AgentExecutor | None = None
+        self._agent = None
 
-    def _get_executor(self) -> AgentExecutor:
-        """
-        Build (or return cached) the LangChain AgentExecutor with ReAct agent.
-        LLM and executor are created once and reused across .analyze() calls.
-        """
-        if self._agent_executor is not None:
-            return self._agent_executor
+    def _get_agent(self):
+        """Build (or return cached) the LangGraph ReAct agent."""
+        if self._agent is not None:
+            return self._agent
 
-        # Instantiate Groq LLM (lazy — reads API key from env here)
         self._llm = ChatGroq(
             model=self.GROQ_MODEL,
             temperature=0,
             groq_api_key=os.getenv("GROQ_API_KEY"),
         )
 
-        # Collect all @tool-decorated functions
         tools = [
             scrape_main_website,
             scrape_security_pages,
@@ -500,26 +475,12 @@ class SaaSAuditorAgent:
             score_security_posture,
         ]
 
-        # Build the ReAct prompt
-        prompt = PromptTemplate.from_template(REACT_PROMPT_TEMPLATE)
-
-        # Create the ReAct agent
-        agent = create_react_agent(
-            llm=self._llm,
-            tools=tools,
-            prompt=prompt,
+        self._agent = create_react_agent(
+            self._llm,
+            tools,
+            prompt=SystemMessage(content=SYSTEM_PROMPT),
         )
-
-        # Wrap in an executor (handles the think/act loop)
-        self._agent_executor = AgentExecutor(
-            agent=agent,
-            tools=tools,
-            verbose=True,
-            max_iterations=12,         # prevent runaway loops
-            handle_parsing_errors=True, # gracefully handle LLM format errors
-            return_intermediate_steps=False,
-        )
-        return self._agent_executor
+        return self._agent
 
     # ------------------------------------------------------------------
     # Response parsing helpers
@@ -610,14 +571,10 @@ class SaaSAuditorAgent:
 
         # --- Run the agent ---
         try:
-            executor = self._get_executor()
-            response = executor.invoke(
-                {
-                    "vendor_name": vendor_name,
-                    "website": website,
-                }
-            )
-            raw_output: str = response.get("output", "")
+            agent = self._get_agent()
+            human_msg = f"Analyze vendor '{vendor_name}' at {website}."
+            response = agent.invoke({"messages": [("human", human_msg)]})
+            raw_output: str = response["messages"][-1].content
         except Exception as exc:
             # Log and return a safe fallback rather than crashing the pipeline
             logger.error("Agent execution failed for %s: %s", vendor_name, exc)

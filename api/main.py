@@ -25,9 +25,11 @@ import sys
 from datetime import datetime, timezone
 from typing import Any
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel
 
 from agents.saas_auditor import SaaSAuditorAgent
 from agents.threat_intel import ThreatIntelAgent
@@ -47,10 +49,16 @@ logger = logging.getLogger("vendorguard.api")
 # App
 # ---------------------------------------------------------------------------
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("VendorGuard AI is up — POST /analyze-vendor to begin.")
+    yield
+
 app = FastAPI(
     title="VendorGuard AI",
     description="Automated vendor security analysis powered by AI agents.",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -142,9 +150,14 @@ async def analyze_vendor(request: VendorRequest) -> VendorResponse:
         + threat_result.get("threat_findings", threat_result.get("findings", []))
     )
 
-    # Flag for human review when score is low or critical findings exist
-    requires_human_review: bool = security_score < 50 or any(
-        "critical" in f.lower() or "breach" in f.lower() for f in key_findings
+    # Flag for human review: low score, agent flagged it, or critical findings
+    requires_human_review: bool = (
+        security_score < 50
+        or threat_result.get("requires_human_review", False)
+        or any(
+            f.lower().startswith("critical") or "breach detected" in f.lower()
+            for f in key_findings
+        )
     )
 
     timestamp = datetime.now(timezone.utc).isoformat()
@@ -170,11 +183,3 @@ async def analyze_vendor(request: VendorRequest) -> VendorResponse:
     )
 
 
-# ---------------------------------------------------------------------------
-# Startup
-# ---------------------------------------------------------------------------
-
-
-@app.on_event("startup")
-async def on_startup() -> None:
-    logger.info("VendorGuard AI is up — POST /analyze-vendor to begin.")

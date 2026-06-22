@@ -1,0 +1,103 @@
+{
+  "name": "VendorGuard Case Workflow",
+  "description": "UiPath Maestro Case definition for automated vendor security review",
+  "version": "1.0.0",
+  "track": "UiPath Maestro Case",
+  "caseSchema": {
+    "fields": [
+      { "name": "vendor_name", "type": "string", "required": true, "label": "Vendor Name" },
+      { "name": "website", "type": "string", "required": true, "label": "Vendor Website URL" },
+      { "name": "requestor", "type": "string", "required": true, "label": "Requestor" },
+      { "name": "department", "type": "string", "required": false, "label": "Department" },
+      { "name": "priority", "type": "enum", "values": ["low", "medium", "high", "critical"], "default": "medium" },
+      { "name": "security_score", "type": "integer", "label": "Security Score (1-100)" },
+      { "name": "requires_human_review", "type": "boolean", "label": "Requires Human Review" },
+      { "name": "key_findings", "type": "array", "label": "Key Findings" },
+      { "name": "analysis_timestamp", "type": "datetime", "label": "Analysis Timestamp" },
+      { "name": "reviewer_decision", "type": "enum", "values": ["approved", "rejected", "needs_more_info"], "label": "Reviewer Decision" },
+      { "name": "reviewer_notes", "type": "string", "label": "Reviewer Notes" }
+    ]
+  },
+  "stages": [
+    {
+      "id": "intake",
+      "name": "Intake",
+      "description": "New vendor review request received",
+      "entryAction": "log_case_received",
+      "exitConditions": [
+        { "condition": "vendor_name IS NOT NULL AND website IS NOT NULL", "nextStage": "ai_analysis" }
+      ]
+    },
+    {
+      "id": "ai_analysis",
+      "name": "AI Analysis",
+      "description": "VendorGuard AI agents analyze the vendor",
+      "entryAction": "call_vendorguard_api",
+      "apiCall": {
+        "endpoint": "POST http://localhost:8000/analyze-vendor",
+        "payload": { "vendor_name": "${vendor_name}", "website": "${website}" },
+        "responseMapping": {
+          "security_score": "$.security_score",
+          "requires_human_review": "$.requires_human_review",
+          "key_findings": "$.key_findings",
+          "analysis_timestamp": "$.timestamp"
+        }
+      },
+      "exitConditions": [
+        { "condition": "requires_human_review = false AND security_score >= 70", "nextStage": "auto_approved" },
+        { "condition": "requires_human_review = true OR security_score < 70", "nextStage": "human_review" }
+      ]
+    },
+    {
+      "id": "human_review",
+      "name": "Human Review",
+      "description": "Security analyst reviews high-risk vendor",
+      "humanTask": {
+        "assignTo": "security_team",
+        "sla_hours": 48,
+        "form": {
+          "fields": ["reviewer_decision", "reviewer_notes"],
+          "showReadOnly": ["vendor_name", "website", "security_score", "key_findings"]
+        }
+      },
+      "exitConditions": [
+        { "condition": "reviewer_decision = 'approved'", "nextStage": "approved" },
+        { "condition": "reviewer_decision = 'rejected'", "nextStage": "rejected" },
+        { "condition": "reviewer_decision = 'needs_more_info'", "nextStage": "intake" }
+      ]
+    },
+    {
+      "id": "auto_approved",
+      "name": "Auto-Approved",
+      "description": "Vendor automatically approved based on AI analysis",
+      "entryAction": "notify_requestor_approved",
+      "terminal": true
+    },
+    {
+      "id": "approved",
+      "name": "Approved",
+      "description": "Vendor approved after human review",
+      "entryAction": "notify_requestor_approved",
+      "terminal": true
+    },
+    {
+      "id": "rejected",
+      "name": "Rejected",
+      "description": "Vendor rejected based on security concerns",
+      "entryAction": "notify_requestor_rejected",
+      "terminal": true
+    }
+  ],
+  "notifications": {
+    "onCaseCreated": { "to": "${requestor}", "template": "vendor_review_started" },
+    "onHumanReviewRequired": { "to": "security_team", "template": "vendor_review_escalated" },
+    "onAutoApproved": { "to": "${requestor}", "template": "vendor_approved" },
+    "onApproved": { "to": "${requestor}", "template": "vendor_approved_after_review" },
+    "onRejected": { "to": "${requestor}", "template": "vendor_rejected" }
+  },
+  "codingAgentUsage": {
+    "tool": "Claude Code",
+    "integration": "UiPath for Coding Agents",
+    "description": "This entire backend was built using Claude Code as a coding agent. The AI agents (SaaS Auditor + Threat Intel) were designed, implemented, and tested through natural language interaction with Claude Code — demonstrating the human-AI collaboration model that UiPath Maestro Case enables."
+  }
+}

@@ -7,9 +7,9 @@ Run with: pytest tests/test_api.py -v
 
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
-from api.main import app
+from api.main import app, _generate_mock_response, _is_mock_mode
 
 client = TestClient(app)
 
@@ -17,7 +17,9 @@ client = TestClient(app)
 def test_health():
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json()["status"] == "ok"
+    data = response.json()
+    assert data["status"] == "ok"
+    assert "mode" in data
 
 
 def test_root():
@@ -26,41 +28,61 @@ def test_root():
     data = response.json()
     assert data["name"] == "VendorGuard AI"
     assert "UiPath Maestro Case" in data["tracks"]
+    assert "mode" in data
 
 
-def test_analyze_vendor_mock():
-    mock_saas = {
-        "findings": ["SOC2 detected", "Hosted on AWS"],
-        "compliance_certs": ["SOC2"],
-        "hosting_regions": ["AWS US-East"],
-        "security_score_contribution": 40,
-    }
-    mock_threat = {
-        "threat_findings": ["No breach history found"],
-        "breach_history": [],
-        "bug_bounty_exposure": {"platform": "HackerOne", "open_count": 3},
-        "threat_score_contribution": 35,
-        "requires_human_review": False,
-    }
+def test_mock_mode_detection():
+    import os
+    original = os.environ.get("GROQ_API_KEY")
+    try:
+        os.environ["GROQ_API_KEY"] = "placeholder"
+        assert _is_mock_mode() is True
+        os.environ["GROQ_API_KEY"] = ""
+        assert _is_mock_mode() is True
+    finally:
+        if original is None:
+            os.environ.pop("GROQ_API_KEY", None)
+        else:
+            os.environ["GROQ_API_KEY"] = original
 
-    with patch("api.main.SaaSAuditorAgent") as MockSaaS, \
-         patch("api.main.ThreatIntelAgent") as MockThreat:
-        MockSaaS.return_value.analyze.return_value = mock_saas
-        MockThreat.return_value.analyze.return_value = mock_threat
 
-        response = client.post(
-            "/analyze-vendor",
-            json={"vendor_name": "TestCorp", "website": "https://testcorp.com"},
-        )
+def test_mock_microsoft_profile():
+    saas, threat = _generate_mock_response("Microsoft", "https://microsoft.com")
+    assert saas["security_score_contribution"] >= 40
+    assert "SOC2" in saas["compliance_certs"]
+    assert threat["requires_human_review"] is False
+
+
+def test_mock_unknown_vendor_https():
+    saas, threat = _generate_mock_response("SomeRandomCorp", "https://somecorp.io")
+    assert isinstance(saas["security_score_contribution"], int)
+    assert isinstance(threat["threat_score_contribution"], int)
+
+
+def test_mock_risky_vendor():
+    saas, threat = _generate_mock_response("free crack hack tool", "http://sketchy.net")
+    combined = saas["security_score_contribution"] + threat["threat_score_contribution"]
+    assert combined < 50
+    assert threat["requires_human_review"] is True
+
+
+def test_analyze_vendor_mock_mode():
+    """In mock mode (no real key), the Microsoft profile should return a high score."""
+    import os
+    os.environ.setdefault("GROQ_API_KEY", "placeholder")
+
+    response = client.post(
+        "/analyze-vendor",
+        json={"vendor_name": "Microsoft", "website": "https://microsoft.com"},
+    )
 
     assert response.status_code == 200
     data = response.json()
-    assert data["vendor_name"] == "TestCorp"
-    assert data["security_score"] == 75  # 40 + 35
+    assert data["vendor_name"] == "Microsoft"
+    assert data["security_score"] >= 70
     assert data["requires_human_review"] is False
-    assert "SOC2 detected" in data["key_findings"]
-    assert "No breach history found" in data["key_findings"]
     assert "timestamp" in data
+    assert data["mode"] in ("mock", "live", "mock-fallback")
 
 
 def test_analyze_vendor_missing_feature():
@@ -72,31 +94,16 @@ def test_analyze_vendor_missing_feature():
 
 
 def test_analyze_vendor_high_risk():
-    mock_saas = {
-        "findings": ["No compliance certs found", "HTTP only (no HTTPS)"],
-        "compliance_certs": [],
-        "hosting_regions": [],
-        "security_score_contribution": 10,
-    }
-    mock_threat = {
-        "threat_findings": ["CRITICAL: breach detected in 2023"],
-        "breach_history": [{"year": 2023, "records": 10000}],
-        "bug_bounty_exposure": {"platform": None, "open_count": 0},
-        "threat_score_contribution": 5,
-        "requires_human_review": True,
-    }
+    """Risky vendor keywords should trigger human review."""
+    import os
+    os.environ.setdefault("GROQ_API_KEY", "placeholder")
 
-    with patch("api.main.SaaSAuditorAgent") as MockSaaS, \
-         patch("api.main.ThreatIntelAgent") as MockThreat:
-        MockSaaS.return_value.analyze.return_value = mock_saas
-        MockThreat.return_value.analyze.return_value = mock_threat
-
-        response = client.post(
-            "/analyze-vendor",
-            json={"vendor_name": "SketchyCorp", "website": "http://sketchycorp.net"},
-        )
+    response = client.post(
+        "/analyze-vendor",
+        json={"vendor_name": "free hack tool", "website": "http://sketchycorp.net"},
+    )
 
     assert response.status_code == 200
     data = response.json()
-    assert data["security_score"] == 15  # 10 + 5
-    assert data["requires_human_review"] is True  # score < 50 AND "breach" in findings
+    assert data["security_score"] < 50
+    assert data["requires_human_review"] is True

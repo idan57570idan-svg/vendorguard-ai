@@ -1,0 +1,12 @@
+[
+  {
+    "BrowserWidgetBreadcrumbsJson": "{}",
+    "ActivityIdRef": "ManualTrigger_1",
+    "MetadataStatus": 2
+  },
+  {
+    "BrowserWidgetBreadcrumbsJson": "{}",
+    "ActivityIdRef": "NetHttpRequest_1",
+    "MetadataStatus": 2
+  }
+]

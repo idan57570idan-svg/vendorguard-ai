@@ -1,0 +1,36 @@
+[
+  {
+    "FullName": null,
+    "ActivityIdRef": "NetHttpRequest_1",
+    "IsCollapsed": false,
+    "IsEnabled": true,
+    "RequiresConfiguration": false,
+    "PropertiesBackendMetadata": [
+      {
+        "PropertyName": "Method",
+        "RenderType": 0,
+        "Widget": "Dropdown",
+        "Conversion": null
+      },
+      {
+        "PropertyName": "RequestUrl",
+        "RenderType": 0,
+        "Widget": "TextComposer",
+        "Conversion": null
+      },
+      {
+        "PropertyName": "RequestBodyType",
+        "RenderType": 0,
+        "Widget": "Dropdown",
+        "Conversion": null
+      },
+      {
+        "PropertyName": "TextPayload",
+        "RenderType": 0,
+        "Widget": "TextComposer",
+        "Conversion": null
+      }
+    ],
+    "Status": 2
+  }
+]

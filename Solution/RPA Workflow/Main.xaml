@@ -1,0 +1,218 @@
+<Activity mc:Ignorable="sap sap2010" x:Class="Main"
+ xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+ xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+ xmlns:s="clr-namespace:System;assembly=System.Private.CoreLib"
+ xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"
+ xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
+ xmlns:scg="clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib"
+ xmlns:ui="http://schemas.uipath.com/workflow/activities"
+ xmlns:uwah="clr-namespace:UiPath.Web.Activities.Http;assembly=UiPath.Web.Activities"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <TextExpression.NamespacesForImplementation>
+    <scg:List x:TypeArguments="x:String" Capacity="29">
+      <x:String>UiPath.Web.Activities.Http.Models</x:String>
+      <x:String>System</x:String>
+      <x:String>System.Collections.Generic</x:String>
+      <x:String>System.Runtime.Serialization</x:String>
+      <x:String>System.Collections</x:String>
+      <x:String>System.Security</x:String>
+      <x:String>System.Net</x:String>
+      <x:String>UiPath.Platform.ResourceHandling</x:String>
+      <x:String>System.Reflection</x:String>
+      <x:String>System.Activities</x:String>
+      <x:String>UiPath.Web.Activities.Http</x:String>
+      <x:String>UiPath.Sdk.Activities</x:String>
+      <x:String>UiPath.Sdk.Activities.DependencyInjection.Contracts</x:String>
+      <x:String>UiPath.Sdk.Activities.DependencyInjection</x:String>
+      <x:String>UiPath.Core.Activities</x:String>
+      <x:String>UiPath.Shared.Activities</x:String>
+      <x:String>System.Activities.Statements</x:String>
+      <x:String>System.Activities.Expressions</x:String>
+      <x:String>System.Activities.Validation</x:String>
+      <x:String>System.Activities.XamlIntegration</x:String>
+      <x:String>Microsoft.VisualBasic</x:String>
+      <x:String>Microsoft.VisualBasic.Activities</x:String>
+      <x:String>System.Data</x:String>
+      <x:String>System.Diagnostics</x:String>
+      <x:String>System.IO</x:String>
+      <x:String>System.Linq</x:String>
+      <x:String>System.Windows.Markup</x:String>
+      <x:String>Newtonsoft.Json</x:String>
+      <x:String>Newtonsoft.Json.Linq</x:String>
+    </scg:List>
+  </TextExpression.NamespacesForImplementation>
+  <TextExpression.ReferencesForImplementation>
+    <scg:List x:TypeArguments="AssemblyReference" Capacity="20">
+      <AssemblyReference>System.Activities</AssemblyReference>
+      <AssemblyReference>Microsoft.VisualBasic</AssemblyReference>
+      <AssemblyReference>System</AssemblyReference>
+      <AssemblyReference>System.Linq</AssemblyReference>
+      <AssemblyReference>System.Xaml</AssemblyReference>
+      <AssemblyReference>System.Net.Primitives</AssemblyReference>
+      <AssemblyReference>System.Runtime.InteropServices</AssemblyReference>
+      <AssemblyReference>Newtonsoft.Json</AssemblyReference>
+      <AssemblyReference>UiPath.System.Activities</AssemblyReference>
+      <AssemblyReference>System.Private.CoreLib</AssemblyReference>
+      <AssemblyReference>System.Runtime</AssemblyReference>
+      <AssemblyReference>netstandard</AssemblyReference>
+      <AssemblyReference>mscorlib</AssemblyReference>
+      <AssemblyReference>System.Runtime.Serialization.Formatters</AssemblyReference>
+      <AssemblyReference>UiPath.Web.Activities</AssemblyReference>
+      <AssemblyReference>System.Collections</AssemblyReference>
+      <AssemblyReference>System.Private.Uri</AssemblyReference>
+      <AssemblyReference>UiPath.Platform</AssemblyReference>
+      <AssemblyReference>System.Reflection.Primitives</AssemblyReference>
+      <AssemblyReference>System.ComponentModel</AssemblyReference>
+    </scg:List>
+  </TextExpression.ReferencesForImplementation>
+
+  <Sequence DisplayName="VendorGuard AI — Vendor Security Audit" sap:VirtualizedContainerService.HintSize="520,900" sap2010:WorkflowViewState.IdRef="Sequence_1">
+    <Sequence.Variables>
+      <Variable x:TypeArguments="x:String" Name="VendorName" Default="Microsoft" />
+      <Variable x:TypeArguments="x:String" Name="VendorWebsite" Default="https://microsoft.com" />
+      <Variable x:TypeArguments="x:String" Name="ResponseBody" />
+      <Variable x:TypeArguments="x:Int32" Name="StatusCode" />
+      <Variable x:TypeArguments="x:String" Name="SecurityScore" />
+      <Variable x:TypeArguments="x:String" Name="RiskLevel" />
+      <Variable x:TypeArguments="x:Boolean" Name="RequiresHumanReview" />
+    </Sequence.Variables>
+
+    <sap:WorkflowViewStateService.ViewState>
+      <scg:Dictionary x:TypeArguments="x:String, x:Object">
+        <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+      </scg:Dictionary>
+    </sap:WorkflowViewStateService.ViewState>
+
+    <!-- Stage 1: Manual Trigger (Maestro Case Intake) -->
+    <ui:ManualTrigger DisplayName="Maestro Case Trigger — Intake Stage" sap2010:WorkflowViewState.IdRef="ManualTrigger_1" />
+
+    <!-- Stage 2: Log Start -->
+    <ui:LogMessage Level="Info" Message="[VendorGuard] Starting vendor security audit for: {VendorName} ({VendorWebsite})" DisplayName="Log — Audit Started" sap2010:WorkflowViewState.IdRef="LogMessage_1" />
+
+    <!-- Stage 3: Call VendorGuard AI API -->
+    <uwah:NetHttpRequest
+      DisplayName="HTTP POST — /analyze-vendor (AI Analysis Stage)"
+      sap2010:WorkflowViewState.IdRef="NetHttpRequest_1"
+      BasicAuthPassword="{x:Null}"
+      BasicAuthSecurePassword="{x:Null}"
+      BasicAuthUsername="{x:Null}"
+      BinaryPayload="{x:Null}"
+      ClientCertPassword="{x:Null}"
+      ClientCertPath="{x:Null}"
+      ClientCertSecurePassword="{x:Null}"
+      Cookies="{x:Null}"
+      CustomNegotiatedAuthCredentials="{x:Null}"
+      FilePath="{x:Null}"
+      FormData="{x:Null}"
+      Headers="{x:Null}"
+      LocalFiles="{x:Null}"
+      OAuthToken="{x:Null}"
+      OutputFileName="{x:Null}"
+      OutputFileTargetFolder="{x:Null}"
+      Parameters="{x:Null}"
+      PathResource="{x:Null}"
+      ProxyConfiguration="{x:Null}"
+      ResourceFiles="{x:Null}"
+      AuthenticationType="None"
+      ContinueOnError="True"
+      DisableSslVerification="False"
+      EnableCookies="True"
+      FileOverwrite="AutoRename"
+      FollowRedirects="True"
+      FormDataParts="[New List (Of FormDataPart) From {New FileFormDataPart(), New BinaryFormDataPart(), New TextFormDataPart()}]"
+      InitialDelay="500"
+      MaxRedirects="3"
+      MaxRetryAfterDelay="30000"
+      Method="POST"
+      Multiplier="2"
+      PreferRetryAfterValue="True"
+      RequestBodyType="Text"
+      RequestUrl="[&quot;http://localhost:8000/analyze-vendor&quot;]"
+      RetryCount="3"
+      RetryPolicyType="Basic"
+      RetryStatusCodes="[New List (Of System.Net.HttpStatusCode) From {System.Net.HttpStatusCode.RequestTimeout, System.Net.HttpStatusCode.TooManyRequests, System.Net.HttpStatusCode.InternalServerError, System.Net.HttpStatusCode.BadGateway, System.Net.HttpStatusCode.ServiceUnavailable, System.Net.HttpStatusCode.GatewayTimeout}]"
+      SaveRawRequestResponse="False"
+      SaveResponseAsFile="False"
+      TextPayload="[&quot;{ &quot;&quot;vendor_name&quot;&quot;: &quot;&quot;&quot; + VendorName + &quot;&quot;&quot;, &quot;&quot;website&quot;&quot;: &quot;&quot;&quot; + VendorWebsite + &quot;&quot;&quot; }&quot;]"
+      TextPayloadContentType="application/json"
+      TextPayloadEncoding="UTF-8"
+      TlsProtocol="Automatic"
+      UseJitter="True"
+      UseOsNegotiatedAuthCredentials="True">
+      <uwah:NetHttpRequest.ResponseStatusCode>
+        <OutArgument x:TypeArguments="x:Int32">[StatusCode]</OutArgument>
+      </uwah:NetHttpRequest.ResponseStatusCode>
+      <uwah:NetHttpRequest.ResponseBody>
+        <OutArgument x:TypeArguments="x:String">[ResponseBody]</OutArgument>
+      </uwah:NetHttpRequest.ResponseBody>
+      <uwah:NetHttpRequest.TimeoutInMiliseconds>
+        <InArgument x:TypeArguments="s:Nullable(x:Int32)">
+          <Literal x:TypeArguments="s:Nullable(x:Int32)" Value="30000" />
+        </InArgument>
+      </uwah:NetHttpRequest.TimeoutInMiliseconds>
+    </uwah:NetHttpRequest>
+
+    <!-- Stage 4: Log raw response -->
+    <ui:LogMessage Level="Info" Message="[VendorGuard] API Response (HTTP {StatusCode}): {ResponseBody}" DisplayName="Log — API Response Received" sap2010:WorkflowViewState.IdRef="LogMessage_2" />
+
+    <!-- Stage 5: Parse JSON and extract score -->
+    <Assign DisplayName="Extract Security Score from JSON" sap2010:WorkflowViewState.IdRef="Assign_1">
+      <Assign.To>
+        <OutArgument x:TypeArguments="x:String">[SecurityScore]</OutArgument>
+      </Assign.To>
+      <Assign.Value>
+        <InArgument x:TypeArguments="x:String">[If(String.IsNullOrEmpty(ResponseBody), "N/A", If(Newtonsoft.Json.Linq.JObject.Parse(ResponseBody)("security_score") IsNot Nothing, Newtonsoft.Json.Linq.JObject.Parse(ResponseBody)("security_score").ToString(), "N/A"))]</InArgument>
+      </Assign.Value>
+    </Assign>
+
+    <!-- Stage 6: Determine Risk Level and Human Review Flag -->
+    <If DisplayName="Route — High Risk or Low Risk?" sap2010:WorkflowViewState.IdRef="If_1" Condition="[CInt(If(SecurityScore = &quot;N/A&quot;, 0, Integer.Parse(SecurityScore))) &lt; 70]">
+      <If.Then>
+        <Sequence DisplayName="HIGH RISK — Escalate to Human Review" sap2010:WorkflowViewState.IdRef="Sequence_HighRisk">
+          <Assign DisplayName="Set Risk Level: HIGH" sap2010:WorkflowViewState.IdRef="Assign_HighRisk">
+            <Assign.To>
+              <OutArgument x:TypeArguments="x:String">[RiskLevel]</OutArgument>
+            </Assign.To>
+            <Assign.Value>
+              <InArgument x:TypeArguments="x:String">HIGH</InArgument>
+            </Assign.Value>
+          </Assign>
+          <Assign DisplayName="Set RequiresHumanReview = True" sap2010:WorkflowViewState.IdRef="Assign_HumanReviewTrue">
+            <Assign.To>
+              <OutArgument x:TypeArguments="x:Boolean">[RequiresHumanReview]</OutArgument>
+            </Assign.To>
+            <Assign.Value>
+              <InArgument x:TypeArguments="x:Boolean">True</InArgument>
+            </Assign.Value>
+          </Assign>
+          <ui:LogMessage Level="Warn" Message="[VendorGuard] RISK ALERT — Score {SecurityScore}/100 for {VendorName}. Escalating to Human Review stage." DisplayName="Log — Escalation" sap2010:WorkflowViewState.IdRef="LogMessage_HighRisk" />
+        </Sequence>
+      </If.Then>
+      <If.Else>
+        <Sequence DisplayName="LOW RISK — Auto-Approve" sap2010:WorkflowViewState.IdRef="Sequence_LowRisk">
+          <Assign DisplayName="Set Risk Level: LOW" sap2010:WorkflowViewState.IdRef="Assign_LowRisk">
+            <Assign.To>
+              <OutArgument x:TypeArguments="x:String">[RiskLevel]</OutArgument>
+            </Assign.To>
+            <Assign.Value>
+              <InArgument x:TypeArguments="x:String">LOW</InArgument>
+            </Assign.Value>
+          </Assign>
+          <Assign DisplayName="Set RequiresHumanReview = False" sap2010:WorkflowViewState.IdRef="Assign_HumanReviewFalse">
+            <Assign.To>
+              <OutArgument x:TypeArguments="x:Boolean">[RequiresHumanReview]</OutArgument>
+            </Assign.To>
+            <Assign.Value>
+              <InArgument x:TypeArguments="x:Boolean">False</InArgument>
+            </Assign.Value>
+          </Assign>
+          <ui:LogMessage Level="Info" Message="[VendorGuard] AUTO-APPROVED — Score {SecurityScore}/100 for {VendorName}. No human review required." DisplayName="Log — Auto Approval" sap2010:WorkflowViewState.IdRef="LogMessage_LowRisk" />
+        </Sequence>
+      </If.Else>
+    </If>
+
+    <!-- Stage 7: Final Summary Log -->
+    <ui:LogMessage Level="Info" Message="[VendorGuard] AUDIT COMPLETE — Vendor: {VendorName} | Score: {SecurityScore}/100 | Risk: {RiskLevel} | Human Review: {RequiresHumanReview}" DisplayName="Log — Audit Summary" sap2010:WorkflowViewState.IdRef="LogMessage_Final" />
+
+  </Sequence>
+</Activity>
